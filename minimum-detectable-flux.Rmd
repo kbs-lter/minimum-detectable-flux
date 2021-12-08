@@ -86,7 +86,7 @@ mdl(100000, 0.005, sim)
 Since the minimum detectable slopes are symmetrical, the minimum detectable slope is around +/- 0.015 
 ppb/min at a 5% confidence level and +/- 0.02 ppb/min at a 1% confidence level. 
 
-Defining a function to compute flux
+Defining a function to compute flux TODO  check units
 ```{r }
 flux <- function(slope, molecular_weight, air_temperature, height) {
   ug_minute = (slope * molecular_weight * 1)/(0.0821 * (air_temperature + 274.15))
