@@ -13,9 +13,13 @@ library(arrow)
 points <- read_parquet("./zero-flux.trailer.parquet")
 ```
 
-To compute the minimum detectable flux I'm following the procedure used by Parkin et.al 2012 https://acsess.onlinelibrary.wiley.com/doi/epdf/10.2134/jeq2011.0394. Parkin et.al. computed minimum detection limit parameters for 3 and 4 measurements per incubation, however with the ICOS we get a few hundred measurements for each incubation. I repeated the Monte Carlo simulation using the larger number of measurements possible with the ICOS.
+To compute the minimum detectable flux I'm following the procedure used by Parkin et.al 2012 https://acsess.onlinelibrary.wiley.com/doi/epdf/10.2134/jeq2011.0394. Parkin et.al. computed minimum detection limit parameters for 3 and 4 measurements per incubation. He used a monte-carlo simulation of drawing random ppm values and computing fluxes for each set of values. Theoretically all fluxes drawn from that distribution should be zero. He defined the minium detection limit as the 95% percentile of the distribution of zero fluxes, leaving a 5% chance of classifying a zero flux as a "real" flux.
 
-First I need to compute the standard deviation and CV of the system. Parkin used CV, I used standard deviation, since the standard deviation instead of the CV is the input parameter to the `rnorm` function.
+Parkin used a 4 point flux calculation, however with the ICOS we get a few hundred measurements for each incubation. I repeated the Monte Carlo simulation using the larger number of measurements possible with the ICOS.
+
+First I need to compute the standard deviation and CV of the system. Parkin used CV, I used standard deviation, since the standard deviation is the input parameter to the `rnorm` function. The `rnorm` function is used to generate a distribution with a specified mean and standard devation.
+
+We measured "zero" fluxes in the field by installing the chambers over a metal plates so there should not be any gas released into the chamber.
 
 Taking all the zero fluxes (where the metal plate was installed), we compute the mean, standard deviation, median number of samples per incubation, and CV from each incubation.
 
@@ -29,7 +33,7 @@ points %>%
             median_n = median(number))
 ```
 
-Plotting the distribution of CV's it looks to be clustered on the low end.
+Plotting the distribution of CV's a expected they look to be clustered on the low end.
 
 ```{r data-graph}
 points %>%
@@ -63,7 +67,7 @@ summary(lm(ppm ~ minute, data=data))$coefficients
 summary(lm(ppm ~ minute, data=data))$coefficients[[2 ,1]]
 ```
 
-Next I define a function to run a number of simulations using the `sim` function, arranging the resulting slopes in order and taking the last number of the top 5% or 1% of the numbers to be the minimum detectable flux. Running the function 100000 times with a 5% and a 1% significance level. 
+Next I define a function to run a number of simulations using the `sim` function defined above, sorting the resulting slopes and taking the last number of the top 5% or 1% of the numbers to be the minimum detectable flux.  
 
 ```{r sim-mdl}
 mdl = function(runs, significance, sim_function) {
@@ -75,6 +79,7 @@ mdl = function(runs, significance, sim_function) {
   slice_tail()
 }
 ```
+Running the function 100000 times with a 5% and a 1% significance level.
 The minimum detectable slope at a 5% confidence level is (we have two tails so we use 0.025 as the cutoff)
 ```{r compute-5-percent}
 mdl(100000, 0.025, sim)
@@ -86,13 +91,13 @@ mdl(100000, 0.005, sim)
 Since the minimum detectable slopes are symmetrical, the minimum detectable slope is around +/- 0.015 
 ppb/min at a 5% confidence level and +/- 0.02 ppb/min at a 1% confidence level. 
 
-Defining a function to compute flux TODO  check units, slope ug/kg 
+Defining a function to compute flux in grams/ha/day 
 ```{r }
 flux <- function(slope, molecular_weight, air_temperature, height) {
   ug_l_minute = (slope * molecular_weight * 1)/(0.0821 * (air_temperature + 273.15))
   area_m2 =  pi * 14.1^2/10000
   volume_l = pi * 14.1^2 * (height- 0.2) / 1000
-  flux_ug_m_hr = (ug__lminute * volume_l * 60)/area_m2
+  flux_ug_m_hr = (ug_l_minute * volume_l * 60)/area_m2
   flux_ug_m_hr * 0.01 * 24 # grams/ha/day
 }
 ```
@@ -156,15 +161,12 @@ lab_data <- read_parquet("./cvresults.parquet") %>%
   filter(!str_detect(Sample, 'STD'))
 ```
 
-lets get the CV for N2O
+lets get the standard deviations and CV's for N2O
 
 ```{r lab_cv}
 lab_data %>%
   summarize(avg_n2o = mean(n2o_ppm), sd_n2o = sd(n2o_ppm), number = n()) %>%
-  mutate(cv_n2o = sd_n2o/avg_n2o) %>%
-  summarize(mean_n2o= mean(avg_n2o), mean_sd = mean(sd_n2o), 
-            max_cv = max(cv_n2o), min_cv = min(cv_n2o), mean_cv=mean(cv_n2o), 
-            median_n = median(number))
+  mutate(cv_n2o = sd_n2o/avg_n2o) 
 ```
 
 defining a lab simulation procedures drawing 4 samples for each incubation.
@@ -187,12 +189,12 @@ and at a 1% confidence level
 mdl(100000, 0.005, sim_lab)
 ```
 
-In the lab GC our detection limit is basically 10x higher. I think this is mainly due to only using 4 samples instead of 210., The minimum detectable slope is around +/- 0.15 ppb/min at a 5% confidence level and +/- 0.2 ppb/min at a 1% confidence level.
+The minimum detectable slope is around +/- 0.28 ppb/min at a 5% confidence level and +/- 0.37 ppb/min at a 1% confidence level. Taking only 4 points results in a higher error estimate and a much larger MDL.
 
 Assuming 20C and 30 cm chamber height and re-using our flux function we would get
 ```{r }
-flux(0.0002817641, 28, 20, 30)
-flux(0.0003689541, 28, 20, 30)
+flux(0.000282, 28, 20, 30)
+flux(0.000369, 28, 20, 30)
 ```
 
 For our chambers that would work out to an MDL of +/-1.4 g/ha/day at a 5% confidence level and +/-1.8 g/ha/day at a 1% confidence level.
