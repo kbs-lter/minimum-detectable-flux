@@ -152,16 +152,8 @@ both are siginficantly lower than the Parkin approach and the actual zero flux m
 
 we took 30 air samples to establish an error estimate
 ```{r airload}
-air <- read_parquet("./cvresults.parquet")
-ch4 <- air %>%
-  filter(str_detect(Sample,'^A')) %>%
-  filter(!str_detect(Sample, 'STD')) %>%
-  select(Vial, ch4_ppm)
-n2o_co2 <- air %>%
-  filter(str_detect(Sample,'^B')) %>%
-  filter(!str_detect(Sample, 'STD')) %>%
-  select(Vial, n2o_ppm, co2_ppm)
-lab_data <- merge(ch4, n2o_co2)
+lab_data <- read_parquet("./cvresults.parquet") %>%
+  filter(!str_detect(Sample, 'STD'))
 ```
 
 lets get the CV for N2O
@@ -179,7 +171,7 @@ defining a lab simulation procedures drawing 4 samples for each incubation.
 ```{r sim-function-lab}
 sim_lab = function() {
   minute = seq(1,4)*15
-  ppm=rnorm(4, 0.208, 0.00263463)
+  ppm=rnorm(4, 0.3329667, 0.004810071)
   data = data.frame(minute, ppm)
   summary(lm(ppm ~ minute, data=data))$coefficients[[2,1]]
 }
@@ -199,8 +191,8 @@ In the lab GC our detection limit is basically 10x higher. I think this is mainl
 
 Assuming 20C and 30 cm chamber height and re-using our flux function we would get
 ```{r }
-flux(0.00015, 28, 20, 30)
-flux(0.00020, 28, 20, 30)
+flux(0.0002817641, 28, 20, 30)
+flux(0.0003689541, 28, 20, 30)
 ```
 
-For our chambers that would work out to an MDL of +/-746 mg/ha/day at a 5% confidence level and +/-995 mg/ha/day at a 1% confidence level.
+For our chambers that would work out to an MDL of +/-1.4 g/ha/day at a 5% confidence level and +/-1.8 g/ha/day at a 1% confidence level.
