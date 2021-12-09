@@ -89,11 +89,11 @@ ppb/min at a 5% confidence level and +/- 0.02 ppb/min at a 1% confidence level.
 Defining a function to compute flux TODO  check units, slope ug/kg 
 ```{r }
 flux <- function(slope, molecular_weight, air_temperature, height) {
-  ug_minute = (slope * molecular_weight * 1)/(0.0821 * (air_temperature + 274.15))
-  area =  pi * 14.1^2/10000
-  volume = pi * 14.1^2 * (height- 0.2) / 1000
-  flux_ug_m_hr = (ug_minute * volume * 60)/area
-  flux_ug_m_hr * 0.01 * 24
+  ug_l_minute = (slope * molecular_weight * 1)/(0.0821 * (air_temperature + 273.15))
+  area_m2 =  pi * 14.1^2/10000
+  volume_l = pi * 14.1^2 * (height- 0.2) / 1000
+  flux_ug_m_hr = (ug__lminute * volume_l * 60)/area_m2
+  flux_ug_m_hr * 0.01 * 24 # grams/ha/day
 }
 ```
 
