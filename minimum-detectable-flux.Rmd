@@ -19,7 +19,20 @@ Parkin used a 4 point flux calculation, however with the ICOS we get a few hundr
 
 First I need to compute the standard deviation and CV of the system. Parkin used CV, I used standard deviation, since the standard deviation is the input parameter to the `rnorm` function. The `rnorm` function is used to generate a distribution with a specified mean and standard devation.
 
-We measured "zero" fluxes in the field by installing the chambers over a metal plates so there should not be any gas released into the chamber.
+We measured "zero" fluxes in the field by installing the chambers over a metal plates so there should not be any gas released from the soil into the chamber, but the chamber is exposed to the normal environmental conditions.
+
+All of the n2o samples over time, while there are a few outliers
+```{r all-samples}
+points %>%
+  select(id, sampled_at, n2o_ppm) %>%
+  ggplot(aes(sampled_at, n2o_ppm)) + geom_point()
+```
+
+the distribution of n2o samples overall, looks reasonably normal. (probably should do a test)
+```{r distribution}
+points %>%
+  ggplot(aes(n2o_ppm)) + geom_histogram(bins=500)
+```
 
 Taking all the zero fluxes (where the metal plate was installed), we compute the mean, standard deviation, median number of samples per incubation, and CV from each incubation.
 
@@ -203,7 +216,7 @@ For our chambers that would work out to an MDL of +/-1.4 g/ha/day at a 5% confid
 
 The minimum detection limits of the different sampling systems as estimated.
 
-- KBS GC system test (Neville) 4 point +/- 1.03 g/ha/day
+- KBS Feld GC system test (Neville) 4 point +/- 1.03 g/ha/day
 - KBS GC air test (only 30 samples) +/- 1.4 to 1.8 g/ha/day
 - KBS ICOS trailer (zero flux run) +/- 0.074 to 0.099 g/ha/day
 - Christiansen et.al. 2015 +/-0.007 g/ha/day (7.2 mg/ha/day)
