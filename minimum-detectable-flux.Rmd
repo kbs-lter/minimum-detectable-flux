@@ -33,38 +33,41 @@ the distribution of n2o samples overall, looks reasonably normal. (probably shou
 points %>%
   ggplot(aes(n2o_ppm)) + geom_histogram(bins=500)
 ```
+And the distribution of all of the fluxes during the experiment.
 
-Taking all the zero fluxes (where the metal plate was installed), we compute the mean, standard deviation, median number of samples per incubation, and CV from each incubation.
+```{r flux-distribution}
+points %>%
+  select(sampled_at, n2o_flux) %>%
+  unique() %>%
+  ggplot(aes(sampled_at, n2o_flux)) + geom_point() + ylab('N2O-N g/ha/day')
+```
+Taking all the zero fluxes (where the metal plate was installed), we compute the mean, standard deviation, median number of samples per incubation, and CV from each incubation and computing the grand means of the variability per incubation.
 
 ```{r determine-cv}
+
+
 points %>%
   group_by(id) %>%
   summarize(avg_n2o = mean(n2o_ppm), sd_n2o = sd(n2o_ppm), number = n()) %>%
   mutate(cv_n2o = sd_n2o/avg_n2o) %>%
-  summarize(mean_n2o= mean(avg_n2o), mean_sd = mean(sd_n2o), 
+  summarize(mean_n2o= mean(avg_n2o), mean_sd = mean(sd_n2o), max_sd= max(sd_n2o),
             max_cv = max(cv_n2o), min_cv = min(cv_n2o), mean_cv=mean(cv_n2o), 
             median_n = median(number))
 ```
 
-Plotting the distribution of CV's a expected they look to be clustered on the low end.
-
-```{r data-graph}
+If we just take all of the measured values This provides an error estimate for the whole sample during rather than one for each incubation. 
+```{r all-cv}
 points %>%
-  group_by(id) %>%
-  summarize(avg_n2o = mean(n2o_ppm), sd_n2o = sd(n2o_ppm)) %>%
-  mutate(cv_n2o = sd_n2o/avg_n2o) %>%
-  ungroup() %>%
-  ggplot(aes(cv_n2o)) + geom_histogram(bins=50)  + scale_y_sqrt()
+  summarize(avg_n2o=mean(n2o_ppm), sd_n2o=sd(n2o_ppm))
 ```
 
 
-
-I define a function to draw 210 samples (which was the average number of sample points we have per incubation) from a random distribution (`rnorm(number, mean, std)`) with a mean of 0.350 ppm and a standard deviation of 0.000228  (computed from the zero flux data). Then I join it with a sequence (1..210) which would represent the second and divide by 30 to simulate minutes (we get one measurement every 2 seconds). I join the minute and ppm values into a data.frame and fit a linear model `ppm = a + b second` and extract the slope `b` component.
+I define a function to draw 210 samples (which was the average number of sample points we have per incubation) from a random distribution (`rnorm(number, mean, std)`) with a mean of 0.350 ppm and a standard deviation of 0.001984735 (computed from the zero flux data). Then I join it with a sequence (1..210) which would represent the second and divide by 30 to simulate minutes (we get one measurement every 2 seconds). I join the minute and ppm values into a data.frame and fit a linear model `ppm = a + b second` and extract the slope `b` component.
 
 ```{r sim-function}
 sim = function() {
   minute = seq(1,210)/30
-  ppm=rnorm(210, 0.350, 0.000228)
+  ppm=rnorm(210, 0.350, 0.001984735)
   data = data.frame(minute, ppm)
   summary(lm(ppm ~ minute, data=data))$coefficients[[2,1]]
 }
@@ -73,7 +76,7 @@ sim = function() {
 Running through one iteration of the function with the intermediate results, shows that the last result returns just the slope intercept.
 ```{r }
 minute = seq(1,210)/30
-ppm=rnorm(210, 0.350, 0.000228)
+ppm=rnorm(210, 0.350, 0.001984735)
 data = data.frame(minute, ppm)
 head(data)
 summary(lm(ppm ~ minute, data=data))$coefficients
@@ -101,8 +104,7 @@ and at a 1% confidence level
 ```{r compute-1-percent}
 mdl(100000, 0.005, sim)
 ```
-Since the minimum detectable slopes are symmetrical, the minimum detectable slope is around +/- 0.015 
-ppb/min at a 5% confidence level and +/- 0.02 ppb/min at a 1% confidence level. 
+Since the minimum detectable slopes are symmetrical, the minimum detectable slope is around +/- 0.13 ppb/min at a 5% confidence level and +/- 0.17 ppb/min at a 1% confidence level. 
 
 Defining a function to compute flux in grams/ha/day 
 ```{r }
@@ -117,11 +119,11 @@ flux <- function(slope, molecular_weight, air_temperature, height) {
 
 Assuming 20C and 30 cm chamber height (the test chambers were 15 cm but we are trying to estimate what it would be like in the full chamber) we would get
 ```{r }
-flux(0.000015, 28, 20, 30)
-flux(0.000020, 28, 20, 30)
+flux(0.0001119216	, 28, 20, 30)
+flux(0.0001732237, 28, 20, 30)
 ```
 
-For our chambers that would work out to an MDL of +/-74 mg/ha/day at a 5% confidence level and +/-99 mg/ha/day at a 1% confidence level.
+For our chambers that would work out to an MDL of +/-0.56 g/ha/day at a 5% confidence level and +/-0.86 g/ha/day at a 1% confidence level.
 
 The mean slopes for the zero flux samples (-0.0072 ppb/min) is less than the computed minimum detectable limit. 
 ```{r mean-zero-flux}
@@ -131,7 +133,29 @@ points %>%
 ```
 Which works out to about 18 mg/ha/day.
 
+Looking at the ~3000 fluxes collected during the zero flux experiment we expect to see about 30 fluxes outside of the MDL at the 1% confidence interval. We had 12
+
+```{r observation}
+points %>%
+  select(id, n2o_flux) %>%
+  unique() %>%
+  filter(n2o_flux <  -0.86 | n2o_flux > 0.86) %>%
+  count()
+```
+
+Manually adjusting the MDL value shows that for this dataset the MDL should be around 0.27 g/ha/day to yield 30 values outside of the MDL range.
+
+```{r mdl-manual}
+points %>%
+  select(id, n2o_flux) %>%
+  unique() %>%
+  filter(n2o_flux < -0.27 | n2o_flux > 0.27) %>%
+  count()
+```
+Maybe we have enough zero fluxes that we can be confident about the distribution of zero fluxes when there are no fluxes in the chamber.
+
 During the fall run-in period we observed 89 negative fluxes out of 1744 total fluxes. Of the negative fluxes  25 were below the MDL. However, if we filter out fluxes where the co2_r2 < 0.8 we end up with 4 negative fluxes below the MDL and if we filter out fluxes where the co2_r2 < 0.8 and the n2o_r2 < 0.5 we end up with no negative fluxes below the MDL.
+
 
 Christiansen et. al. 2015 (https://doi.org/10.1016/j.agrformet.2015.06.004) proposed a method to compute the minimum detectable flux based on the published noise figure of the instrument used. He proposed $\frac{Aa}{tc}  \frac{VP}{SRT}$ where $Aa$ is the analytic accuracy of the instrument, $tc$ is the closure time in hours $V$ is the chamber volume, $P$ the atmospheric pressure in Pa, $S$ the surface area of the soil, $R$ the gas constant and T the temperature in Kelvin.
 
