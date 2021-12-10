@@ -95,14 +95,14 @@ Defining a function to compute flux in grams/ha/day
 ```{r }
 flux <- function(slope, molecular_weight, air_temperature, height) {
   ug_l_minute = (slope * molecular_weight * 1)/(0.0821 * (air_temperature + 273.15))
-  area_m2 =  pi * 14.1^2/10000
-  volume_l = pi * 14.1^2 * (height- 0.2) / 1000
+  area_m2 =  50 * 50 / 10000
+  volume_l = 50 * 50  * (height- 0.2) / 1000
   flux_ug_m_hr = (ug_l_minute * volume_l * 60)/area_m2
   flux_ug_m_hr * 0.01 * 24 # grams/ha/day
 }
 ```
 
-Assuming 20C and 30 cm chamber height we would get
+Assuming 20C and 30 cm chamber height (the test chambers were 15 cm but we are trying to estimate what it would be like in the full chamber) we would get
 ```{r }
 flux(0.000015, 28, 20, 30)
 flux(0.000020, 28, 20, 30)
